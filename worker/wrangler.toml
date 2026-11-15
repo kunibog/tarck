@@ -9,8 +9,11 @@ ALLOWED_ORIGIN = "https://kunibog.github.io"
 BOT_USERNAME = "trakrobot"
 ADMIN_TELEGRAM_IDS = ""
 
+# Smart Placement: Worker сам выбирает дата-центр рядом с базой (Frankfurt) — все запросы к БД становятся заметно быстрее
+[placement]
+mode = "smart"
+
 [triggers]
-crons = ["*/15 * * * *"]   # напоминания, окончание PRO, завершение челленджей
+crons = ["*/5 * * * *"]   # каждые 5 минут: напоминания, окончание PRO, завершение челленджей
 
 # Секреты (wrangler secret put <NAME>): SUPABASE_URL, SUPABASE_SERVICE_KEY, BOT_TOKEN, WEBHOOK_SECRET, ADMIN_OWNER_ID
-# v2
