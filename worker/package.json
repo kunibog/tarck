@@ -1,0 +1,7 @@
+{
+  "name": "trakrobot-api",
+  "private": true,
+  "scripts": { "dev": "wrangler dev", "deploy": "wrangler deploy" },
+  "dependencies": { "@supabase/supabase-js": "^2.45.0" },
+  "devDependencies": { "wrangler": "^3.80.0", "typescript": "^5.5.0", "@cloudflare/workers-types": "^4.0.0" }
+}

@@ -1,0 +1,15 @@
+name = "trakrobot-api"
+main = "src/index.ts"
+compatibility_date = "2026-01-01"
+
+[vars]
+# ЗАМЕНИ YOUR_GITHUB_USER и имя репозитория на свои
+MINIAPP_URL = "https://YOUR_GITHUB_USER.github.io/trakrobot/"
+ALLOWED_ORIGIN = "https://YOUR_GITHUB_USER.github.io"
+BOT_USERNAME = "trakrobot"
+ADMIN_TELEGRAM_IDS = ""
+
+[triggers]
+crons = ["*/15 * * * *"]   # напоминания, окончание PRO, завершение челленджей
+
+# Секреты (wrangler secret put <NAME>): SUPABASE_URL, SUPABASE_SERVICE_KEY, BOT_TOKEN, WEBHOOK_SECRET, ADMIN_OWNER_ID
