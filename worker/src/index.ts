@@ -206,9 +206,13 @@ async function handleUpdate(env: Env, db: SupabaseClient, update: any) {
     const name = escHtml(msg.from?.first_name ?? 'друг');
     const caption = `👋 <b>Привет, ${name}!</b>\n\n<b>Трекер</b> — твой личный помощник для привычек и целей ✨\n\n✅ Отмечай привычки одним касанием\n⏱ Таймер для чтения, спорта и медитации\n📊 Серии и статистика — видно, как растёт прогресс\n🏆 Достижения и челленджи с друзьями\n⏰ Напоминания, чтобы ничего не забыть\n\nНачни с одной маленькой привычки — остальное получится само 🌱`;
     const kb = { inline_keyboard: [[{ text: '🚀 Открыть Трекер', web_app: { url: env.MINIAPP_URL } }]] };
-    // Картинка берётся из frontend/welcome.jpg на GitHub Pages. Если файла нет — отправляем просто текст.
-    const photo = await tg(env, 'sendPhoto', { chat_id: msg.chat.id, photo: `${env.MINIAPP_URL}welcome.jpg`, caption, parse_mode: 'HTML', reply_markup: kb });
-    if (!photo.ok) await tg(env, 'sendMessage', { chat_id: msg.chat.id, text: caption, parse_mode: 'HTML', reply_markup: kb });
+    // Картинка берётся из frontend/welcome.png (или welcome.jpg) на GitHub Pages. Если файла нет — отправляем просто текст.
+    let sent = false;
+    for (const file of ['welcome.png', 'welcome.jpg']) {
+      const photo = await tg(env, 'sendPhoto', { chat_id: msg.chat.id, photo: `${env.MINIAPP_URL}${file}`, caption, parse_mode: 'HTML', reply_markup: kb });
+      if (photo.ok) { sent = true; break; }
+    }
+    if (!sent) await tg(env, 'sendMessage', { chat_id: msg.chat.id, text: caption, parse_mode: 'HTML', reply_markup: kb });
     return;
   }
   if (text === '/admin') {
