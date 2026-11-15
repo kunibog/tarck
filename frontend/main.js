@@ -2,7 +2,7 @@
 // ───────── Запуск ─────────
 async function boot() {
   if (!WA || !WA.initData) {
-    $('#app').innerHTML = empty('send', 'Откройте через Telegram', 'TRAKROBOT работает как Telegram Mini App. Откройте @' + CONFIG.BOT_USERNAME);
+    $('#app').innerHTML = empty('send', 'Откройте через Telegram', 'Трекер работает как Telegram Mini App. Откройте @' + CONFIG.BOT_USERNAME);
     lucide.createIcons(); return;
   }
   try { WA.ready(); WA.expand(); WA.BackButton.onClick(() => ACT.back()); WA.disableVerticalSwipes && WA.disableVerticalSwipes(); } catch (e) { /* */ }

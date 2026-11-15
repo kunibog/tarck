@@ -93,7 +93,7 @@ VIEWS.challenge = () => {
   ${active ? '<button class="btn" data-act="chinvite"><i data-lucide="user-plus"></i>Пригласить друзей</button>' : ''}`;
 };
 ACT.chprog = async () => { const v = parseFloat(String($('#chv').value).replace(',', '.')); if (isNaN(v) || v < 0) return toast('Введите число'); await api(`/api/challenges/${S.chd.challenge.id}/progress`, { method: 'POST', body: { value: v, date: today() } }); hap('ok'); S.chd = await api('/api/challenges/' + S.chd.challenge.id); S.chs = null; render(); };
-ACT.chinvite = () => { const l = `https://t.me/${CONFIG.BOT_USERNAME}/${CONFIG.APP_SHORT_NAME}?startapp=ch_${S.chd.challenge.invite_code}`; shareLink(l, `Присоединяйся к челленджу «${S.chd.challenge.title}» в TRAKROBOT!`); };
+ACT.chinvite = () => { const l = `https://t.me/${CONFIG.BOT_USERNAME}/${CONFIG.APP_SHORT_NAME}?startapp=ch_${S.chd.challenge.invite_code}`; shareLink(l, `Присоединяйся к челленджу «${S.chd.challenge.title}» в Трекере!`); };
 function shareLink(link, text) { const u = 'https://t.me/share/url?url=' + encodeURIComponent(link) + '&text=' + encodeURIComponent(text); WA && WA.openTelegramLink ? WA.openTelegramLink(u) : window.open(u, '_blank'); }
 ACT.chnew = () => { S.cf = { title: '', description: '', icon: 'trophy', color: 'violet', target_value: 1, duration_days: 7 }; nav('chform'); };
 VIEWS.chform = () => { const f = S.cf; return `${topBar('Новый челлендж')}
@@ -113,7 +113,7 @@ ACT.chsave = async () => {
 
 // ───────── Рефералы ─────────
 TABS.referrals = () => {
-  const r = S.ref; const head = '<h1>Рефералы</h1><p class="muted" style="margin-top:-6px">Приглашай друзей — развивай TRAKROBOT вместе с нами</p>';
+  const r = S.ref; const head = '<h1>Рефералы</h1><p class="muted" style="margin-top:-6px">Приглашай друзей — развивай Трекер вместе с нами</p>';
   if (!r) return head + (S.refErr ? errBox('Не удалось загрузить', 'refreload') : skeleton(3));
   return head + `<div class="card"><div class="grid g2">${[['Приглашено', r.invited], ['Активировано', r.activated], ['Из них с PRO', r.invitedPro], ['Дней PRO получено', r.rewardDays]].map(x => `<div class="stat"><span class="muted small">${x[0]}</span><b>${x[1]}</b></div>`).join('')}</div></div>
   <button class="btn" data-act="refshare"><i data-lucide="share-2"></i>Пригласить друзей</button><div class="gap"></div>
@@ -123,42 +123,54 @@ TABS.referrals = () => {
 };
 AFTER.referrals = () => { if (!S.ref && !S.refErr) api('/api/referrals').then(r => { S.ref = r; render(); }).catch(() => { S.refErr = true; render(); }); };
 ACT.refreload = () => { S.refErr = false; render(); };
-ACT.refshare = () => shareLink(`https://t.me/${CONFIG.BOT_USERNAME}/${CONFIG.APP_SHORT_NAME}?startapp=ref_${S.me.refCode}`, 'Я использую TRAKROBOT для привычек и целей. Присоединяйся!');
+ACT.refshare = () => shareLink(`https://t.me/${CONFIG.BOT_USERNAME}/${CONFIG.APP_SHORT_NAME}?startapp=ref_${S.me.refCode}`, 'Я использую Трекер для привычек и целей. Присоединяйся!');
 
 // ───────── Профиль ─────────
 TABS.profile = () => {
   const m = S.me, u = m.user, st = S.stats || {};
   return `<div class="row" style="margin:6px 0 14px">${u.photo_url ? `<img class="avatar" src="${esc(u.photo_url)}" alt="">` : '<div class="avatar"></div>'}<div class="sp"><div style="font-size:20px;font-weight:700">${esc(u.first_name || 'Пользователь')}</div><div class="muted small">${u.username ? '@' + esc(u.username) : ''} · с ${fmtDateRu(u.created_at)}</div></div><span class="badge ${m.isPro ? '' : 'free'}">${m.isPro ? 'PRO' : 'FREE'}</span></div>
-  <button class="card row" style="width:100%;text-align:left;background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 50%,#000))" data-act="gopro"><i data-lucide="crown"></i><div class="sp"><b>TRAKROBOT PRO</b><div class="small" style="opacity:.85">${m.isPro ? 'Действует до ' + fmtDateRu(m.proUntil) : 'Без ограничений и расширенная аналитика'}</div></div><i data-lucide="chevron-right"></i></button>
+  <button class="card row" style="width:100%;text-align:left;background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 50%,#000))" data-act="gopro"><i data-lucide="crown"></i><div class="sp"><b>Трекер PRO</b><div class="small" style="opacity:.85">${m.isPro ? 'Действует до ' + fmtDateRu(m.proUntil) : 'Без ограничений и расширенная аналитика'}</div></div><i data-lucide="chevron-right"></i></button>
   <div class="grid g3" style="margin-bottom:10px">${[['Серия', st.current || 0], ['Привычек', S.habits.length], ['Выполнений', st.completions || 0]].map(x => `<div class="card stat center" style="margin:0"><b>${x[1]}</b><span class="muted small">${x[0]}</span></div>`).join('')}</div>
   <div class="card" style="padding:4px 14px">${[['achievements', 'award', 'Достижения'], ['themes', 'palette', 'Темы оформления'], ['archive', 'archive', 'Архив привычек'], ['payments', 'receipt', 'История платежей']].map(x => `<button class="item row" style="width:100%;padding:13px 0;border-bottom:1px solid var(--line)" data-act="go" data-v="${x[0]}"><i data-lucide="${x[1]}"></i><span class="sp" style="text-align:left">${x[2]}</span><i data-lucide="chevron-right" class="muted"></i></button>`).join('')}
     <div class="row" style="padding:13px 0;border-bottom:1px solid var(--line)"><i data-lucide="bell"></i><span class="sp">Уведомления</span><input type="checkbox" style="width:22px;height:22px" ${u.notifications ? 'checked' : ''} data-act="notif"></div>
+    <button class="row" style="width:100%;padding:13px 0;border-bottom:1px solid var(--line)" data-act="testnotif"><i data-lucide="bell-ring"></i><span class="sp" style="text-align:left">Проверить уведомления</span><i data-lucide="chevron-right" class="muted"></i></button>
     <div class="row" style="padding:13px 0"><i data-lucide="globe"></i><span class="sp">Часовой пояс</span><span class="muted small">${esc(u.timezone)}</span></div></div>
   <div class="card" style="padding:4px 14px">${[['support', 'life-buoy', 'Поддержка'], ['privacy', 'shield', 'Политика конфиденциальности'], ['terms', 'file-text', 'Пользовательское соглашение']].map(x => `<button class="row" style="width:100%;padding:13px 0;border-bottom:1px solid var(--line)" data-act="${x[0]}"><i data-lucide="${x[1]}"></i><span class="sp" style="text-align:left">${x[2]}</span></button>`).join('')}</div>
   ${m.isAdmin ? '<button class="btn sec" data-act="go" data-v="admin"><i data-lucide="shield-check"></i>Админ-панель</button>' : ''}`;
 };
 ACT.go = d => nav(d.v);
 ACT.notif = async (d, el) => { await api('/api/me', { method: 'PATCH', body: { notifications: el.checked } }); S.me.user.notifications = el.checked; toast(el.checked ? 'Уведомления включены' : 'Уведомления выключены'); };
+ACT.testnotif = async () => {
+  const r = await api('/api/me/test-notify', { method: 'POST' });
+  toast(r.sent ? 'Отправили сообщение в чат с ботом' : 'Не получилось. Откройте чат с ботом и нажмите /start');
+};
 ACT.support = () => WA.openTelegramLink ? WA.openTelegramLink(CONFIG.SUPPORT_URL) : window.open(CONFIG.SUPPORT_URL);
 const legal = (t, body) => sheet(`<h2 style="margin-top:0">${t}</h2><div class="muted" style="font-size:14px">${body}</div><div class="gap"></div><button class="btn sec" data-v="x">Закрыть</button>`);
-ACT.privacy = () => legal('Политика конфиденциальности', 'TRAKROBOT хранит только данные, необходимые для работы: ваш Telegram ID, имя, username, часовой пояс, а также созданные вами привычки и отметки. Мы не запрашиваем номер телефона, геолокацию и другие личные данные и не передаём данные третьим лицам. Оплата проходит через Telegram Stars; платёжных данных мы не получаем. Чтобы удалить данные, напишите в поддержку.');
-ACT.terms = () => legal('Пользовательское соглашение', 'Приложение предоставляется «как есть». TRAKROBOT PRO — цифровая услуга, оплачиваемая Telegram Stars. Возвраты рассматриваются через поддержку в соответствии с правилами Telegram. Используя приложение, вы соглашаетесь не злоупотреблять сервисом, реферальной и подарочной системами.');
+ACT.privacy = () => legal('Политика конфиденциальности', 'Трекер хранит только данные, необходимые для работы: ваш Telegram ID, имя, username, часовой пояс, а также созданные вами привычки и отметки. Мы не запрашиваем номер телефона, геолокацию и другие личные данные и не передаём данные третьим лицам. Оплата проходит через Telegram Stars; платёжных данных мы не получаем. Чтобы удалить данные, напишите в поддержку.');
+ACT.terms = () => legal('Пользовательское соглашение', 'Приложение предоставляется «как есть». Трекер PRO — цифровая услуга, оплачиваемая Telegram Stars. Возвраты рассматриваются через поддержку в соответствии с правилами Telegram. Используя приложение, вы соглашаетесь не злоупотреблять сервисом, реферальной и подарочной системами.');
 
 // ───────── PRO ─────────
 S.plan = 'pro_12m';
 VIEWS.pro = () => {
   const m = S.me, plans = Object.entries(m.plans), per = p => Math.round(p.stars / (p.days / 30));
   const feats = [['infinity', 'Неограниченное число привычек'], ['bar-chart-3', 'Расширенная аналитика и все периоды'], ['history', 'Полная история статистики'], ['palette', 'Персональные темы оформления'], ['trophy', 'Челленджи без недельного лимита'], ['file-text', 'Расширенные отчёты']];
-  return `${topBar('TRAKROBOT PRO')}${m.isPro ? `<div class="card center"><b>PRO активен до ${fmtDateRu(m.proUntil)}</b><div class="muted small">Покупка продлит срок</div></div>` : ''}
+  return `${topBar('Трекер PRO')}${m.isPro ? `<div class="card center"><b>PRO активен до ${fmtDateRu(m.proUntil)}</b><div class="muted small">Покупка продлит срок</div></div>` : ''}
   <div class="card">${feats.map(f => `<div class="row" style="padding:7px 0"><i data-lucide="${f[0]}" style="color:var(--accent)"></i><span>${f[1]}</span></div>`).join('')}</div>
   <h2>Тариф</h2>${plans.map(([k, p]) => `<button class="plan ${S.plan === k ? 'on' : ''}" data-act="plan" data-k="${k}"><div class="sp"><b>${p.title}</b><div class="muted small">≈ ${per(p)} ⭐ в месяц</div></div><b>${p.stars} ⭐</b></button>`).join('')}
   <button class="btn" data-act="buy">Оплатить ${m.plans[S.plan].stars} ⭐ Telegram Stars</button><p class="muted small center">Оплата проходит внутри Telegram. PRO активируется автоматически после подтверждения платежа сервером.</p>`;
 };
-ACT.plan = d => { S.plan = d.k; render(); };
+// Счёт на оплату готовим заранее, пока человек читает тарифы — тогда кнопка «Оплатить» срабатывает мгновенно
+S.inv = {};
+function prefetchInvoice(k) {
+  if (!S.inv[k]) { const p = api('/api/pay/invoice', { method: 'POST', body: { plan: k } }); S.inv[k] = p; p.catch(() => { if (S.inv[k] === p) delete S.inv[k]; }); }
+  return S.inv[k];
+}
+AFTER.pro = () => { prefetchInvoice(S.plan); };
+ACT.plan = d => { S.plan = d.k; prefetchInvoice(d.k); render(); };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function refreshMe() { S.me = await api('/api/me'); const t = S.me.user.theme; applyTheme(THEMES[t] && THEMES[t].pro && !S.me.isPro ? 'default-dark' : t); }
 ACT.buy = async () => {
-  const r = await api('/api/pay/invoice', { method: 'POST', body: { plan: S.plan } });
+  const r = await prefetchInvoice(S.plan);
   if (!WA || !WA.openInvoice) return toast('Обновите Telegram, чтобы оплатить Stars');
   WA.openInvoice(r.invoiceLink, async st => {
     if (st === 'paid') { toast('Оплата прошла, активируем PRO…'); for (let i = 0; i < 10; i++) { await sleep(1500); try { await refreshMe(); } catch (e) { /* */ } if (S.me.isPro) break; } S.an.data = null; render(); }
@@ -243,7 +255,7 @@ ACT.adgrant = async () => {
   if (g.until) { days = null; label = 'до ' + fmtDateRu(g.until); } else if (g.custom) { days = parseInt(g.custom); label = days + ' дн.'; }
   if (!g.until && !(days >= 1)) return toast('Укажите срок');
   const reason = g.preset + (g.text ? ': ' + g.text : '');
-  const ok = await confirmBox(`Выдать TRAKROBOT PRO\n${uname(g.found.user).replace(/<[^>]+>/g, '')}\nID: ${g.found.user.telegram_id}\nСрок: ${label}\nПричина: ${reason}`, 'Подтвердить выдачу');
+  const ok = await confirmBox(`Выдать Трекер PRO\n${uname(g.found.user).replace(/<[^>]+>/g, '')}\nID: ${g.found.user.telegram_id}\nСрок: ${label}\nПричина: ${reason}`, 'Подтвердить выдачу');
   if (!ok) return;
   g.idem = g.idem || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2));
   const r = await api('/api/admin/subscriptions/grant', { method: 'POST', body: { telegramId: g.found.user.telegram_id, days, untilDate: g.until || undefined, reason, idempotencyKey: g.idem } });

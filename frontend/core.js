@@ -117,13 +117,13 @@ const errBox = (msg, retry) => `<div class="empty"><i data-lucide="wifi-off"></i
 function errToast(e) {
   const m = String(e && e.message || '');
   if (m === 'free_limit_habits') return proPrompt(`В бесплатной версии доступно до ${S.me ? S.me.freeLimits.activeHabits : 7} активных привычек.`);
-  if (m === 'pro_required' || m === 'free_limit_history') return proPrompt('Эта возможность доступна в TRAKROBOT PRO.');
+  if (m === 'pro_required' || m === 'free_limit_history') return proPrompt('Эта возможность доступна в Трекер PRO.');
   if (m.startsWith('challenge_cooldown:')) return toast('Следующий бесплатный челлендж можно создать ' + fmtDateRu(m.split(':').slice(1).join(':')));
   const map = { user_not_found: 'Пользователь не найден', rate_limited: 'Слишком часто, подождите', challenge_finished: 'Челлендж уже завершён', challenge_full: 'В челлендже нет мест', challenge_not_found: 'Челлендж не найден', forbidden: 'Нет доступа', owner_only: 'Только для владельца', bad_params: 'Проверьте введённые данные' };
   toast(map[m] || (e.status === 401 ? 'Откройте приложение через Telegram' : 'Ошибка: ' + m));
 }
 async function proPrompt(text) {
-  const r = await sheet(`<h2 style="margin-top:0">TRAKROBOT PRO</h2><p class="muted">${esc(text)}</p><button class="btn" data-v="go">Посмотреть PRO</button><div class="gap"></div><button class="btn sec" data-v="no">Не сейчас</button>`);
+  const r = await sheet(`<h2 style="margin-top:0">Трекер PRO</h2><p class="muted">${esc(text)}</p><button class="btn" data-v="go">Посмотреть PRO</button><div class="gap"></div><button class="btn sec" data-v="no">Не сейчас</button>`);
   if (r.v === 'go') nav('pro');
 }
 
@@ -155,7 +155,11 @@ const topBar = (title, right) => `<div class="top"><button class="icon-btn" data
 document.addEventListener('click', async e => {
   const el = e.target.closest('[data-act]'); if (!el) return;
   const fn = ACT[el.dataset.act]; if (!fn) return;
+  // Кнопки с сетевыми действиями сразу «нажимаются» (затемнение) и защищены от двойного клика
+  const lock = el.classList.contains('btn') || el.classList.contains('icon-btn');
+  if (lock) { if (el.dataset.busy) return; el.dataset.busy = '1'; el.classList.add('busy'); }
   try { await fn(el.dataset, el, e); } catch (err) { console.error(err); errToast(err); }
+  finally { if (lock) { delete el.dataset.busy; el.classList.remove('busy'); } }
 });
 document.addEventListener('input', e => {
   const t = e.target;

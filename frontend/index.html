@@ -3,20 +3,31 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-  <title>TRAKROBOT</title>
+  <title>Трекер</title>
   <meta name="theme-color" content="#101114">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=4">
 </head>
 <body>
-  <div id="app"><div class="boot">TRAKROBOT</div></div>
+  <div id="app"><div class="boot"><svg viewBox="0 0 64 64" width="72" height="72" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="32" r="26" opacity=".25"/><path d="M32 6a26 26 0 0 1 26 26" class="bring"/><path d="M21 33l8 8 15-17"/></svg><div class="bname">Трекер</div></div></div>
   <div id="overlay"></div>
   <div id="toast"></div>
-  <script src="config.js"></script>
-  <script src="core.js"></script>
-  <script src="habits.js"></script>
-  <script src="more.js"></script>
-  <script src="main.js"></script>
+  <script src="config.js?v=4"></script>
+  <script src="core.js?v=4"></script>
+  <script src="habits.js?v=4"></script>
+  <script src="more.js?v=4"></script>
+  <script src="main.js?v=4"></script>
+  <script>
+    // Если скрипты не загрузились — покажем понятную причину вместо вечной заставки
+    setTimeout(function () {
+      var b = document.querySelector('.boot');
+      if (b) b.insertAdjacentHTML('beforeend', '<small class="bmsg">' + (typeof boot === 'undefined' ? 'Скрипты не загрузились. Проверьте GitHub Pages и config.js.' : 'Загрузка занимает дольше обычного…') + '</small>');
+    }, 6000);
+    window.addEventListener('error', function (e) {
+      var b = document.querySelector('.boot');
+      if (b) b.insertAdjacentHTML('beforeend', '<small class="bmsg" style="color:#FF453A">' + String(e.message).slice(0, 160).replace(/</g, '&lt;') + '</small>');
+    });
+  </script>
 </body>
 </html>

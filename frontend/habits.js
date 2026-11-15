@@ -55,7 +55,7 @@ function habitListHtml() {
 
 TABS.habits = () => {
   if (S.loadErr) return errBox(S.loadErr);
-  if (!S.ready) return `<h1>TRAKROBOT</h1>${skeleton(5)}`;
+  if (!S.ready) return `<h1>Трекер</h1>${skeleton(5)}`;
   const t = today(), maxStreak = Math.max(0, ...Object.values(S.streaks));
   const days = []; for (let i = -20; i <= 3; i++) days.push(addD(t, i));
   const has = new Set(Object.values(S.logs).filter(l => l.completed).map(l => l.log_date));
@@ -88,7 +88,8 @@ async function setValue(h, value, date) {
     const r = await api(`/api/habits/${h.id}/log`, { method: 'POST', body: { date, value } });
     S.logs[key] = r.log;
     if (r.unlocked && r.unlocked.length) toast('🏆 Достижение: ' + r.unlocked.map(a => a.title).join(', '));
-    loadHabits().then(render).catch(() => { });
+    // серии пересчитываем только когда привычка стала выполненной или перестала ей быть — на промежуточном прогрессе лишний запрос не нужен
+    if (!!(prev && prev.completed) !== r.log.completed) loadHabits().then(render).catch(() => { });
   } catch (e) { if (prev) S.logs[key] = prev; else delete S.logs[key]; render(); throw e; }
   render();
 }
