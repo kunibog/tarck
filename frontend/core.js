@@ -119,7 +119,7 @@ function errToast(e) {
   if (m === 'free_limit_habits') return proPrompt(`В бесплатной версии доступно до ${S.me ? S.me.freeLimits.activeHabits : 7} активных привычек.`);
   if (m === 'pro_required' || m === 'free_limit_history') return proPrompt('Эта возможность доступна в Трекер PRO.');
   if (m.startsWith('challenge_cooldown:')) return toast('Следующий бесплатный челлендж можно создать ' + fmtDateRu(m.split(':').slice(1).join(':')));
-  const map = { user_not_found: 'Пользователь не найден', rate_limited: 'Слишком часто, подождите', challenge_finished: 'Челлендж уже завершён', challenge_full: 'В челлендже нет мест', challenge_not_found: 'Челлендж не найден', forbidden: 'Нет доступа', owner_only: 'Только для владельца', bad_params: 'Проверьте введённые данные' };
+  const map = { user_not_found: 'Пользователь не найден', rate_limited: 'Слишком часто, подождите', challenge_finished: 'Челлендж уже завершён', challenge_full: 'В челлендже нет мест', challenge_not_found: 'Челлендж не найден', forbidden: 'Нет доступа', owner_only: 'Только для владельца', bad_params: 'Проверьте введённые данные', db_update_failed: 'Не удалось сохранить изменения, попробуйте ещё раз' };
   toast(map[m] || (e.status === 401 ? 'Откройте приложение через Telegram' : 'Ошибка: ' + m));
 }
 async function proPrompt(text) {
