@@ -4,8 +4,8 @@ compatibility_date = "2026-01-01"
 
 [vars]
 # ЗАМЕНИ YOUR_GITHUB_USER и имя репозитория на свои
-MINIAPP_URL = "https://YOUR_GITHUB_USER.github.io/trakrobot/"
-ALLOWED_ORIGIN = "https://YOUR_GITHUB_USER.github.io"
+MINIAPP_URL = "https://kunibog.github.io/tarck/"
+ALLOWED_ORIGIN = "https://kunibog.github.io"
 BOT_USERNAME = "trakrobot"
 ADMIN_TELEGRAM_IDS = ""
 
