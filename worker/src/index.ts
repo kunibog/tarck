@@ -45,8 +45,12 @@ async function upsertUser(db: SupabaseClient, tgUser: any, startParam: string | 
     if (inviterTg && inviterTg !== tgUser.id) {
       const { data: inviter } = await db.from('users').select('id').eq('telegram_id', inviterTg).maybeSingle();
       if (inviter) {
-        await db.from('referrals').insert({ inviter_id: inviter.id, invited_user_id: created.id });
-        await db.from('users').update({ referred_by: inviter.id }).eq('id', created.id);
+        const { error: refErr } = await db.from('referrals').insert({ inviter_id: inviter.id, invited_user_id: created.id });
+        if (refErr) console.error('referrals insert error', refErr, { inviterTg, invited: created.id });
+        const { error: upErr } = await db.from('users').update({ referred_by: inviter.id }).eq('id', created.id);
+        if (upErr) console.error('users.referred_by update error', upErr);
+      } else {
+        console.error('referral link used but inviter not found', { inviterTg, startParam });
       }
     }
   }
@@ -144,6 +148,8 @@ async function evalAfter(db: SupabaseClient, user: any, completed: boolean, env:
     db.rpc('eval_achievements', { p_user: user.id }),
     completed ? db.rpc('activate_referral', { p_invited: user.id }) : Promise.resolve({ data: null } as any),
   ]);
+  if (ach.error) console.error('eval_achievements rpc error', ach.error);
+  if ((refRes as any).error) console.error('activate_referral rpc error', (refRes as any).error, { invited: user.id });
   const codes = ach.data; let unlocked: any[] = [];
   if (codes?.length) {
     unlocked = (await db.from('achievements').select('code,title,icon').in('code', codes)).data ?? [];
@@ -319,10 +325,7 @@ export default {
           patch.theme = body.theme;
         }
         if ('notifications' in body) patch.notifications = !!body.notifications;
-        if (Object.keys(patch).length) {
-          const { error } = await db.from('users').update(patch).eq('id', user.id);
-          if (error) { console.error('patch /api/me failed', error); throw new HttpError(500, 'db_update_failed'); }
-        }
+        await db.from('users').update(patch).eq('id', user.id);
         return ok({ ok: true });
       }
 
