@@ -319,7 +319,10 @@ export default {
           patch.theme = body.theme;
         }
         if ('notifications' in body) patch.notifications = !!body.notifications;
-        await db.from('users').update(patch).eq('id', user.id);
+        if (Object.keys(patch).length) {
+          const { error } = await db.from('users').update(patch).eq('id', user.id);
+          if (error) { console.error('patch /api/me failed', error); throw new HttpError(500, 'db_update_failed'); }
+        }
         return ok({ ok: true });
       }
 
