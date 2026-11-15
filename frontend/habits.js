@@ -162,7 +162,7 @@ function formHabit() { const f = S.form; return Object.assign({}, f, { target_va
 VIEWS.form = () => {
   const f = S.form, cat = f.cat || 'Прочее';
   const seg = (key, opts) => `<div class="seg">${opts.map(o => `<button class="${f[key] === o[0] ? 'on' : ''}" data-act="fset" data-k="${key}" data-v="${o[0]}">${o[1]}</button>`).join('')}</div>`;
-  return `${top(f.id ? 'Изменить привычку' : 'Новая привычка', '<button class="icon-btn" style="background:var(--accent)" data-act="fsave"><i data-lucide="check"></i></button>')}
+  return `${topBar(f.id ? 'Изменить привычку' : 'Новая привычка', '<button class="icon-btn" style="background:var(--accent)" data-act="fsave"><i data-lucide="check"></i></button>')}
   <div id="prev">${cardHtml(formHabit(), { preview: true })}</div><div class="gap"></div>
   <div class="field"><label>Название</label><input data-f="title" maxlength="100" value="${esc(f.title)}" placeholder="Например: Читать книгу"></div>
   <div class="field"><label>Цвет</label><div class="grid g9">${Object.entries(COLORS).map(([k, c]) => `<button class="dot ${f.color === k ? 'on' : ''}" style="background:${c.hex}" data-act="fset" data-k="color" data-v="${k}" title="${c.name}"></button>`).join('')}</div></div>
@@ -208,6 +208,7 @@ ACT.timer = async d => {
 };
 const RING_C = 2 * Math.PI * 54;
 VIEWS.timer = v => {
+  if (!(S.tmSel >= 1)) S.tmSel = 10;
   const h = hById(v.habitId) || {}, c = hexOf(h.color), t = S.timer;
   const dur = t ? t.duration : S.tmSel * 60;
   const rem = t ? Math.max(0, t.duration - timerElapsed()) : dur;
@@ -216,7 +217,7 @@ VIEWS.timer = v => {
     : `<div class="row" style="margin-bottom:10px"><button class="btn sec sm sp" data-act="tmadj" data-n="-60">− 1 мин</button><button class="btn sec sm sp" data-act="tmadj" data-n="60">+ 1 мин</button><button class="btn sm sp" style="background:${c}" data-act="tmadj" data-n="300">+ 5 мин</button></div>
        <div class="row"><button class="btn sec" data-act="tmcancel"><i data-lucide="x"></i>Сброс</button>${t.status === 'running' ? `<button class="btn" style="background:${c}" data-act="tmpause"><i data-lucide="pause"></i>Пауза</button>` : `<button class="btn" style="background:${c}" data-act="tmresume"><i data-lucide="play"></i>Продолжить</button>`}</div>
        <div class="gap"></div><button class="btn sec" data-act="tmfinish"><i data-lucide="flag"></i>Завершить и засчитать</button>`;
-  return `${top(h.title || 'Таймер')}<div class="ring"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="54" fill="none" stroke="var(--card)" stroke-width="9"/><circle id="tmring" cx="60" cy="60" r="54" fill="none" stroke="${c}" stroke-width="9" stroke-linecap="round" stroke-dasharray="${RING_C}" stroke-dashoffset="${RING_C * (1 - rem / dur)}"/></svg><div class="tm" id="tmtext">${z(mm)}:${z(ss)}</div></div>
+  return `${topBar(h.title || 'Таймер')}<div class="ring"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="54" fill="none" stroke="var(--card)" stroke-width="9"/><circle id="tmring" cx="60" cy="60" r="54" fill="none" stroke="${c}" stroke-width="9" stroke-linecap="round" stroke-dasharray="${RING_C}" stroke-dashoffset="${RING_C * (1 - rem / dur)}"/></svg><div class="tm" id="tmtext">${z(mm)}:${z(ss)}</div></div>
   <div class="center muted small" style="margin-bottom:14px">Таймер хранится на сервере и продолжит идти, даже если вы закроете приложение</div>${ctl}`;
 };
 AFTER.timer = () => {

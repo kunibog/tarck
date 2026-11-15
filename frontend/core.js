@@ -150,7 +150,7 @@ function render() {
   clearInterval(tickTimer); tickTimer = null;
   if (AFTER[key]) AFTER[key]();
 }
-const top = (title, right) => `<div class="top"><button class="icon-btn" data-act="back"><i data-lucide="chevron-left"></i></button><div class="title">${esc(title)}</div>${right || '<div style="width:38px"></div>'}</div>`;
+const topBar = (title, right) => `<div class="top"><button class="icon-btn" data-act="back"><i data-lucide="chevron-left"></i></button><div class="title">${esc(title)}</div>${right || '<div style="width:38px"></div>'}</div>`;
 
 document.addEventListener('click', async e => {
   const el = e.target.closest('[data-act]'); if (!el) return;

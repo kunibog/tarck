@@ -61,10 +61,10 @@ ACT.gopro = () => nav('pro');
 
 // ───────── Достижения ─────────
 VIEWS.achievements = () => {
-  if (!S.achs) return top('Достижения') + skeleton(4);
+  if (!S.achs) return topBar('Достижения') + skeleton(4);
   const cats = [['streak', 'Самая длинная серия'], ['completions', 'Выполнения'], ['activity', 'Активность']];
   const clr = { streak: '#FF8A00', completions: '#22A7E0', activity: '#2FBF5B' };
-  return top('Достижения') + cats.map(c => `<h2 class="center">${c[1]}</h2><div class="grid" style="grid-template-columns:repeat(4,1fr)">${S.achs.filter(a => a.category === c[0]).map(a => `<div class="ach" data-act="achinfo" data-id="${a.id}"><div class="hex ${a.unlocked_at ? (a.rarity !== 'common' ? a.rarity : 'on') : 'off'}" style="--c:${clr[c[0]]}"><i data-lucide="${a.icon}"></i></div>${esc(a.title)}</div>`).join('')}</div>`).join('');
+  return topBar('Достижения') + cats.map(c => `<h2 class="center">${c[1]}</h2><div class="grid" style="grid-template-columns:repeat(4,1fr)">${S.achs.filter(a => a.category === c[0]).map(a => `<div class="ach" data-act="achinfo" data-id="${a.id}"><div class="hex ${a.unlocked_at ? (a.rarity !== 'common' ? a.rarity : 'on') : 'off'}" style="--c:${clr[c[0]]}"><i data-lucide="${a.icon}"></i></div>${esc(a.title)}</div>`).join('')}</div>`).join('');
 };
 AFTER.achievements = () => { if (!S.achs) api('/api/achievements').then(a => { S.achs = a; render(); }).catch(errToast); };
 ACT.achinfo = d => { const a = S.achs.find(x => x.id == d.id); sheet(`<h2 style="margin-top:0">${esc(a.title)}</h2><p>${esc(a.description)}</p><p class="muted small">${a.unlocked_at ? 'Открыто ' + fmtDateRu(a.unlocked_at) : 'Ещё не открыто'}${a.rarity !== 'common' ? ' · ' + a.rarity : ''}</p><button class="btn sec" data-v="x">Закрыть</button>`); };
@@ -82,10 +82,10 @@ ACT.chreload = () => { S.chErr = false; render(); };
 ACT.chopen = d => openChallenge(d.id);
 async function openChallenge(id) { S.chd = null; nav('challenge', { id }); S.chd = await api('/api/challenges/' + id); render(); }
 VIEWS.challenge = () => {
-  const d = S.chd; if (!d) return top('Челлендж') + skeleton(3);
+  const d = S.chd; if (!d) return topBar('Челлендж') + skeleton(3);
   const c = d.challenge, tot = c.target_value * c.duration_days, active = c.status === 'active' && Date.parse(c.ends_at) > Date.now(), me = d.members.find(m => m.me);
   const left = Math.max(0, Math.ceil((Date.parse(c.ends_at) - Date.now()) / 864e5)), all = d.members.reduce((s, m) => s + m.total, 0);
-  return `${top(c.title)}<div class="hcard" style="--c:${hexOf(c.color)};--p:${Math.min(100, all / (tot * d.members.length) * 100)}%"><i data-lucide="${esc(c.icon)}" style="width:26px;height:26px"></i><div class="body"><div class="t">Общий прогресс</div><div class="s">${d.members.length} уч. · ${active ? 'осталось ' + left + ' дн.' : 'завершён'}</div></div></div>
+  return `${topBar(c.title)}<div class="hcard" style="--c:${hexOf(c.color)};--p:${Math.min(100, all / (tot * d.members.length) * 100)}%"><i data-lucide="${esc(c.icon)}" style="width:26px;height:26px"></i><div class="body"><div class="t">Общий прогресс</div><div class="s">${d.members.length} уч. · ${active ? 'осталось ' + left + ' дн.' : 'завершён'}</div></div></div>
   ${c.description ? `<p class="muted">${esc(c.description)}</p>` : ''}
   <div class="card"><div class="muted small">Цель: ${fmtNum(c.target_value)} в день, ${c.duration_days} дн. · Ваш прогресс: ${fmtNum(me.total)} из ${fmtNum(tot)}</div><div class="bar" style="margin:8px 0"><i style="width:${Math.min(100, me.total / tot * 100)}%"></i></div>
     ${active ? `<div class="row"><input id="chv" type="number" inputmode="decimal" step="any" value="${me.today}" placeholder="Сегодня выполнено"><button class="btn sm" data-act="chprog">Сохранить</button></div>` : ''}</div>
@@ -96,7 +96,7 @@ ACT.chprog = async () => { const v = parseFloat(String($('#chv').value).replace(
 ACT.chinvite = () => { const l = `https://t.me/${CONFIG.BOT_USERNAME}/${CONFIG.APP_SHORT_NAME}?startapp=ch_${S.chd.challenge.invite_code}`; shareLink(l, `Присоединяйся к челленджу «${S.chd.challenge.title}» в TRAKROBOT!`); };
 function shareLink(link, text) { const u = 'https://t.me/share/url?url=' + encodeURIComponent(link) + '&text=' + encodeURIComponent(text); WA && WA.openTelegramLink ? WA.openTelegramLink(u) : window.open(u, '_blank'); }
 ACT.chnew = () => { S.cf = { title: '', description: '', icon: 'trophy', color: 'violet', target_value: 1, duration_days: 7 }; nav('chform'); };
-VIEWS.chform = () => { const f = S.cf; return `${top('Новый челлендж')}
+VIEWS.chform = () => { const f = S.cf; return `${topBar('Новый челлендж')}
   <div class="field"><label>Название</label><input id="cf_title" maxlength="80" value="${esc(f.title)}" placeholder="7 дней зарядки"></div>
   <div class="field"><label>Описание</label><textarea id="cf_desc" rows="2" maxlength="500">${esc(f.description)}</textarea></div>
   <div class="grid g2"><div class="field"><label>Цель в день</label><input id="cf_target" type="number" step="any" min="0" value="${f.target_value}"></div><div class="field"><label>Длительность (дней)</label><input id="cf_dur" type="number" min="1" max="365" value="${f.duration_days}"></div></div>
@@ -149,7 +149,7 @@ S.plan = 'pro_12m';
 VIEWS.pro = () => {
   const m = S.me, plans = Object.entries(m.plans), per = p => Math.round(p.stars / (p.days / 30));
   const feats = [['infinity', 'Неограниченное число привычек'], ['bar-chart-3', 'Расширенная аналитика и все периоды'], ['history', 'Полная история статистики'], ['palette', 'Персональные темы оформления'], ['trophy', 'Челленджи без недельного лимита'], ['file-text', 'Расширенные отчёты']];
-  return `${top('TRAKROBOT PRO')}${m.isPro ? `<div class="card center"><b>PRO активен до ${fmtDateRu(m.proUntil)}</b><div class="muted small">Покупка продлит срок</div></div>` : ''}
+  return `${topBar('TRAKROBOT PRO')}${m.isPro ? `<div class="card center"><b>PRO активен до ${fmtDateRu(m.proUntil)}</b><div class="muted small">Покупка продлит срок</div></div>` : ''}
   <div class="card">${feats.map(f => `<div class="row" style="padding:7px 0"><i data-lucide="${f[0]}" style="color:var(--accent)"></i><span>${f[1]}</span></div>`).join('')}</div>
   <h2>Тариф</h2>${plans.map(([k, p]) => `<button class="plan ${S.plan === k ? 'on' : ''}" data-act="plan" data-k="${k}"><div class="sp"><b>${p.title}</b><div class="muted small">≈ ${per(p)} ⭐ в месяц</div></div><b>${p.stars} ⭐</b></button>`).join('')}
   <button class="btn" data-act="buy">Оплатить ${m.plans[S.plan].stars} ⭐ Telegram Stars</button><p class="muted small center">Оплата проходит внутри Telegram. PRO активируется автоматически после подтверждения платежа сервером.</p>`;
@@ -167,7 +167,7 @@ ACT.buy = async () => {
 };
 
 // ───────── Темы ─────────
-VIEWS.themes = () => `${top('Темы оформления')}<div class="grid g2">${Object.entries(THEMES).map(([k, t]) => `<button class="card" style="margin:0;text-align:left;border:2px solid ${S.me.user.theme === k ? 'var(--accent)' : 'transparent'}" data-act="themepick" data-k="${k}"><div class="row" style="gap:4px;margin-bottom:8px">${['bg', 'card', 'accent'].map(c => `<span style="width:26px;height:26px;border-radius:8px;background:${t.v[c]};border:1px solid var(--line)"></span>`).join('')}</div><b>${t.name}</b> <span class="badge ${t.pro ? '' : 'free'}">${t.pro ? 'PRO' : 'FREE'}</span></button>`).join('')}</div>`;
+VIEWS.themes = () => `${topBar('Темы оформления')}<div class="grid g2">${Object.entries(THEMES).map(([k, t]) => `<button class="card" style="margin:0;text-align:left;border:2px solid ${S.me.user.theme === k ? 'var(--accent)' : 'transparent'}" data-act="themepick" data-k="${k}"><div class="row" style="gap:4px;margin-bottom:8px">${['bg', 'card', 'accent'].map(c => `<span style="width:26px;height:26px;border-radius:8px;background:${t.v[c]};border:1px solid var(--line)"></span>`).join('')}</div><b>${t.name}</b> <span class="badge ${t.pro ? '' : 'free'}">${t.pro ? 'PRO' : 'FREE'}</span></button>`).join('')}</div>`;
 ACT.themepick = async d => {
   const t = THEMES[d.k]; applyTheme(d.k);
   const r = await sheet(`<h2 style="margin-top:0">${t.name}</h2><p class="muted small">Предпросмотр применён. ${t.pro && !S.me.isPro ? 'Эта тема доступна в PRO.' : ''}</p><button class="btn" data-v="ok">${t.pro && !S.me.isPro ? 'Открыть PRO' : 'Применить'}</button><div class="gap"></div><button class="btn sec" data-v="no">Отмена</button>`);
@@ -179,10 +179,10 @@ ACT.themepick = async d => {
 const _back = ACT.back; ACT.back = () => { if (S.view && S.view.name === 'themes') applyTheme(S.me.user.theme); _back(); };
 
 // ───────── Архив и платежи ─────────
-VIEWS.archive = () => { if (!S.arch) return top('Архив') + skeleton(3); return top('Архив привычек') + (S.arch.length ? S.arch.map(h => `<div class="hcard" style="--c:${hexOf(h.color)};--p:0%"><i data-lucide="${esc(h.icon)}" style="margin-left:6px"></i><div class="body"><div class="t">${esc(h.title)}</div><div class="s">${schedText(h)}</div></div><button class="act" data-act="unarch" data-id="${h.id}"><i data-lucide="archive-restore"></i></button></div>`).join('') : empty('archive', 'Архив пуст', '')); };
+VIEWS.archive = () => { if (!S.arch) return topBar('Архив') + skeleton(3); return topBar('Архив привычек') + (S.arch.length ? S.arch.map(h => `<div class="hcard" style="--c:${hexOf(h.color)};--p:0%"><i data-lucide="${esc(h.icon)}" style="margin-left:6px"></i><div class="body"><div class="t">${esc(h.title)}</div><div class="s">${schedText(h)}</div></div><button class="act" data-act="unarch" data-id="${h.id}"><i data-lucide="archive-restore"></i></button></div>`).join('') : empty('archive', 'Архив пуст', '')); };
 AFTER.archive = () => { if (!S.arch) api('/api/habits?archived=1').then(d => { S.arch = d.habits; render(); }).catch(errToast); };
 ACT.unarch = async d => { await api('/api/habits/' + d.id, { method: 'PATCH', body: { is_archived: false } }); S.arch = null; await loadHabits(); toast('Привычка восстановлена'); render(); };
-VIEWS.payments = () => { if (!S.pays) return top('Платежи') + skeleton(3); return top('История платежей') + (S.pays.length ? `<div class="card">${S.pays.map(p => `<div class="row" style="margin-bottom:8px"><div class="sp">${esc((S.me.plans[p.plan_code] || {}).title || p.plan_code)}<div class="muted small">${fmtDateRu(p.created_at)}</div></div><b>${p.amount} ⭐</b>${p.status === 'refunded' ? '<span class="badge free">возврат</span>' : ''}</div>`).join('')}</div>` : empty('receipt', 'Платежей пока нет', '')); };
+VIEWS.payments = () => { if (!S.pays) return topBar('Платежи') + skeleton(3); return topBar('История платежей') + (S.pays.length ? `<div class="card">${S.pays.map(p => `<div class="row" style="margin-bottom:8px"><div class="sp">${esc((S.me.plans[p.plan_code] || {}).title || p.plan_code)}<div class="muted small">${fmtDateRu(p.created_at)}</div></div><b>${p.amount} ⭐</b>${p.status === 'refunded' ? '<span class="badge free">возврат</span>' : ''}</div>`).join('')}</div>` : empty('receipt', 'Платежей пока нет', '')); };
 AFTER.payments = () => { if (!S.pays) api('/api/payments').then(p => { S.pays = p; render(); }).catch(errToast); };
 
 // ───────── Админ-панель ─────────
@@ -213,7 +213,7 @@ VIEWS.admin = () => {
   if (a.tab === 'pay') body = !d ? skeleton(2) : d.length ? d.map(p => `<div class="card small"><div class="row"><b class="sp">${uname(p.users)}</b><b>${p.amount} ⭐</b></div><div class="muted">${p.plan_code} · ${fmtDateRu(p.created_at)} · ${p.status}</div>${p.status === 'paid' && S.ad.role === 'OWNER' ? `<button class="btn sec sm" style="margin-top:8px" data-act="adrefund" data-c="${esc(p.telegram_charge_id)}">Вернуть Stars</button>` : ''}</div>`).join('') : empty('receipt', 'Платежей нет', '');
   if (a.tab === 'logs') body = a.role !== 'OWNER' ? '<div class="empty">Журнал доступен только владельцу</div>' : !d ? skeleton(2) : `<div class="card small">${d.map(l => `<div style="padding:6px 0;border-bottom:1px solid var(--line)"><b>${l.action_type}</b> · админ ${l.admin_telegram_id} → ${l.target_telegram_id || '—'} · ${new Date(l.created_at).toLocaleString('ru-RU')}<div class="muted">${esc(l.reason || '')} ${l.new_state ? esc(JSON.stringify(l.new_state)) : ''}</div></div>`).join('') || '—'}</div>`;
   if (a.tab === 'admins') body = a.role !== 'OWNER' ? '<div class="empty">Только для владельца</div>' : `<div class="row"><input data-ag="newadmin" inputmode="numeric" placeholder="Telegram ID нового администратора" value="${esc(a.g.newadmin || '')}"><button class="btn sm" data-act="adaddadmin">Добавить</button></div><div class="gap"></div>${!d ? skeleton(1) : d.map(x => `<div class="card row"><div class="sp">${x.telegram_id} <span class="badge">${x.role}</span></div><button class="btn danger sm" data-act="addeladmin" data-id="${x.telegram_id}">Убрать</button></div>`).join('')}<p class="muted small">Администраторы из переменных окружения (ADMIN_OWNER_ID, ADMIN_TELEGRAM_IDS) здесь не показываются и не удаляются.</p>`;
-  return top('Admin Panel') + tabs + (a.err ? errBox(a.err, 'adreload') : body);
+  return topBar('Admin Panel') + tabs + (a.err ? errBox(a.err, 'adreload') : body);
 };
 async function adLoad(tab) {
   const a = S.ad; a.err = null;
