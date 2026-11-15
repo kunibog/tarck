@@ -53,13 +53,18 @@ export async function tg(env: Env, method: string, body: unknown): Promise<any> 
 }
 
 // Ошибка доставки (бот заблокирован и т.п.) никогда не откатывает основную операцию
-export async function notify(env: Env, db: SupabaseClient, tgId: number, text: string): Promise<boolean> {
+// opts.button — подпись кнопки «открыть приложение» под сообщением; opts.html — текст с HTML-разметкой (<b>…</b>)
+export async function notify(env: Env, db: SupabaseClient, tgId: number, text: string, opts?: { button?: string; html?: boolean }): Promise<boolean> {
   try {
-    const res = await tg(env, 'sendMessage', { chat_id: tgId, text });
+    const body: any = { chat_id: tgId, text };
+    if (opts?.html) body.parse_mode = 'HTML';
+    if (opts?.button) body.reply_markup = { inline_keyboard: [[{ text: opts.button, web_app: { url: env.MINIAPP_URL } }]] };
+    const res = await tg(env, 'sendMessage', body);
     if (!res.ok && res.error_code === 403) await db.from('users').update({ bot_blocked: true }).eq('telegram_id', tgId);
     return !!res.ok;
   } catch { return false; }
 }
+export const escHtml = (s: string) => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string));
 
 // Защита от повторных уведомлений: ключ уникален
 export async function claim(db: SupabaseClient, userId: string, key: string, type: string) {

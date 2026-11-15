@@ -1,7 +1,7 @@
-// TRAKROBOT API + Telegram bot webhook + cron (Cloudflare Worker)
+// Трекер API + Telegram bot webhook + cron (Cloudflare Worker)
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { PLANS, FREE_LIMITS, PRO_MAX_HISTORY_DAYS, CHALLENGE_MAX_MEMBERS, RATE_LIMIT_PER_MIN, FREE_THEMES, ALL_THEMES } from './config';
-import { Env, HttpError, verifyInitData, tg, notify, claim, fmtDate, roleOf, proUntil, tzOk, todayIn, addDays, isDate, isScheduled, cors, json } from './lib';
+import { Env, HttpError, verifyInitData, tg, notify, escHtml, claim, fmtDate, roleOf, proUntil, tzOk, todayIn, addDays, isDate, isScheduled, cors, json } from './lib';
 import { adminRoute } from './admin';
 
 // Rate limit (best effort, в пределах одного isolate). Для жёсткой защиты добавь правило Cloudflare Rate Limiting.
@@ -19,9 +19,14 @@ async function upsertUser(db: SupabaseClient, tgUser: any, startParam: string | 
   const tz = tzOk(tzHeader) ? tzHeader! : null;
   const { data: existing } = await db.from('users').select('*').eq('telegram_id', tgUser.id).maybeSingle();
   if (existing) {
-    const patch: any = { username: tgUser.username ?? null, first_name: tgUser.first_name ?? null, photo_url: tgUser.photo_url ?? null, bot_blocked: false };
+    // пишем в БД только если что-то реально изменилось — экономит запрос на каждом нажатии
+    const patch: any = {};
+    if ((tgUser.username ?? null) !== existing.username) patch.username = tgUser.username ?? null;
+    if ((tgUser.first_name ?? null) !== existing.first_name) patch.first_name = tgUser.first_name ?? null;
+    if ((tgUser.photo_url ?? null) !== existing.photo_url) patch.photo_url = tgUser.photo_url ?? null;
+    if (existing.bot_blocked) patch.bot_blocked = false;
     if (tz && tz !== existing.timezone) patch.timezone = tz;
-    await db.from('users').update(patch).eq('id', existing.id);
+    if (Object.keys(patch).length) await db.from('users').update(patch).eq('id', existing.id);
     return { ...existing, ...patch };
   }
   const { data: created, error } = await db.from('users').insert({
@@ -77,20 +82,21 @@ const time = (s: any) => (typeof s === 'string' && /^\d{2}:\d{2}$/.test(s) ? s :
 async function createHabit(db: SupabaseClient, user: any, body: any) {
   const title = String(body.title ?? '').trim();
   if (!title || title.length > 100) throw new HttpError(400, 'bad_title');
-  if (!(await proUntil(db, user.id)) && (await activeHabitCount(db, user.id)) >= FREE_LIMITS.activeHabits) throw new HttpError(402, 'free_limit_habits');
+  // проверку PRO делаем только если лимит достигнут — иначе лишний запрос не нужен
+  const [count, groupId] = await Promise.all([activeHabitCount(db, user.id), ownGroup(db, user, body.group_id ?? null)]);
+  if (count >= FREE_LIMITS.activeHabits && !(await proUntil(db, user.id))) throw new HttpError(402, 'free_limit_habits');
   const type = HABIT_TYPES.includes(body.type) ? body.type : 'boolean';
   const { data, error } = await db.from('habits').insert({
     user_id: user.id, title, description: body.description ? String(body.description).slice(0, 500) : null,
     icon: String(body.icon ?? 'check').slice(0, 40), color: String(body.color ?? 'violet').slice(0, 20), type,
     target_value: type === 'boolean' ? 1 : Math.min(1e7, Math.max(0.01, Number(body.target_value) || 1)),
     unit: body.unit ? String(body.unit).slice(0, 20) : null, schedule: cleanSchedule(body.schedule),
-    group_id: await ownGroup(db, user, body.group_id ?? null), remind_at: time(body.remind_at),
+    group_id: groupId, remind_at: time(body.remind_at),
     start_date: isDate(body.start_date) ? body.start_date : todayIn(user.timezone),
     sort_order: Date.now() % 1000000000,
   }).select().single();
   if (error) throw new HttpError(400, error.message);
-  await evalAfter(db, user, false);
-  return data;
+  return data; // достижения («Первая привычка» и т.п.) начисляются в фоне — см. маршрут POST /api/habits
 }
 
 async function patchHabit(db: SupabaseClient, user: any, id: string, body: any) {
@@ -119,7 +125,8 @@ async function patchHabit(db: SupabaseClient, user: any, id: string, body: any) 
 async function writeLog(db: SupabaseClient, user: any, habit: any, date: string, value: number) {
   const today = todayIn(user.timezone);
   if (!isDate(date) || date > addDays(today, 1)) throw new HttpError(400, 'bad_date');
-  if (!(await proUntil(db, user.id)) && date < addDays(today, -(FREE_LIMITS.analyticsDays * 4))) throw new HttpError(402, 'free_limit_history');
+  // PRO проверяем только для «старых» дат — для обычной отметки за сегодня лишнего запроса нет
+  if (date < addDays(today, -(FREE_LIMITS.analyticsDays * 4)) && !(await proUntil(db, user.id))) throw new HttpError(402, 'free_limit_history');
   value = Math.min(1e7, Math.max(0, Number(value) || 0));
   const completed = habit.type === 'boolean' ? value > 0 : value >= Number(habit.target_value);
   const { data, error } = await db.from('habit_logs').upsert(
@@ -130,17 +137,20 @@ async function writeLog(db: SupabaseClient, user: any, habit: any, date: string,
 }
 
 // Достижения и активация реферала после действия пользователя
-async function evalAfter(db: SupabaseClient, user: any, completed: boolean, env?: Env) {
-  const { data: codes } = await db.rpc('eval_achievements', { p_user: user.id });
-  let unlocked: any[] = [];
+// Сообщения в Telegram отправляются в фоне (ctx.waitUntil), чтобы не задерживать ответ приложению
+async function evalAfter(db: SupabaseClient, user: any, completed: boolean, env: Env, ctx?: any) {
+  const bg = (p: Promise<any>) => (ctx ? ctx.waitUntil(p) : p);
+  const [ach, refRes] = await Promise.all([
+    db.rpc('eval_achievements', { p_user: user.id }),
+    completed ? db.rpc('activate_referral', { p_invited: user.id }) : Promise.resolve({ data: null } as any),
+  ]);
+  const codes = ach.data; let unlocked: any[] = [];
   if (codes?.length) {
     unlocked = (await db.from('achievements').select('code,title,icon').in('code', codes)).data ?? [];
-    if (env && user.notifications) await notify(env, db, user.telegram_id, `🏆 Новое достижение: ${unlocked.map(a => a.title).join(', ')}`);
+    if (user.notifications) bg(notify(env, db, user.telegram_id, `🏆 Новое достижение: ${unlocked.map(a => a.title).join(', ')}`, { button: 'Открыть Трекер' }));
   }
-  if (completed) {
-    const { data: ref } = await db.rpc('activate_referral', { p_invited: user.id });
-    if (ref?.days > 0 && env) await notify(env, db, ref.inviter_tg, `🎁 Ваш друг начал пользоваться TRAKROBOT. Вам начислено дней PRO: ${ref.days}.`);
-  }
+  const ref = refRes.data;
+  if (ref?.days > 0) bg(notify(env, db, ref.inviter_tg, `🎁 Ваш друг начал пользоваться Трекером. Вам начислено дней PRO: ${ref.days}.`));
   return unlocked;
 }
 
@@ -151,15 +161,20 @@ const timerView = (t: any) => ({
 });
 
 // ───────── Платежи ─────────
+const invoiceCache = new Map<string, { link: string; exp: number }>(); // ссылки на оплату переиспользуются — повторный запрос мгновенный
 async function createInvoice(env: Env, user: any, planCode: string) {
   const plan = PLANS[planCode];
   if (!plan) throw new HttpError(400, 'bad_plan');
+  const key = `${user.telegram_id}:${planCode}:${plan.stars}`;
+  const hit = invoiceCache.get(key);
+  if (hit && hit.exp > Date.now()) return { invoiceLink: hit.link };
   const res = await tg(env, 'createInvoiceLink', {
-    title: `TRAKROBOT PRO — ${plan.title}`, description: `Доступ к TRAKROBOT PRO на ${plan.days} дн.`,
+    title: `Трекер PRO — ${plan.title}`, description: `Подписка Трекер PRO на ${plan.days} дн.`,
     payload: JSON.stringify({ u: user.telegram_id, p: planCode }), provider_token: '', currency: 'XTR',
     prices: [{ label: plan.title, amount: plan.stars }],
   });
   if (!res.ok) throw new HttpError(502, res.description ?? 'invoice_failed');
+  invoiceCache.set(key, { link: res.result, exp: Date.now() + 6 * 3600e3 });
   return { invoiceLink: res.result };
 }
 
@@ -183,18 +198,22 @@ async function handleUpdate(env: Env, db: SupabaseClient, update: any) {
       p_charge: sp.telegram_payment_charge_id, p_provider_charge: sp.provider_payment_charge_id ?? null,
     });
     if (error) { console.error('payment', error.message); throw new Error(error.message); } // Telegram повторит webhook
-    if (!data.duplicate) await notify(env, db, msg.from.id, `✅ Оплата получена. TRAKROBOT PRO активен до ${fmtDate(data.expires_at)}.`);
+    if (!data.duplicate) await notify(env, db, msg.from.id, `✅ Оплата получена. Трекер PRO активен до ${fmtDate(data.expires_at)}.`);
     return;
   }
   const text: string = msg.text ?? '';
   if (text.startsWith('/start') || text === '/help') {
-    await tg(env, 'sendMessage', { chat_id: msg.chat.id, text: 'TRAKROBOT — Track everything. Control your progress.',
-      reply_markup: { inline_keyboard: [[{ text: 'Открыть TRAKROBOT', web_app: { url: env.MINIAPP_URL } }]] } });
+    const name = escHtml(msg.from?.first_name ?? 'друг');
+    const caption = `👋 <b>Привет, ${name}!</b>\n\n<b>Трекер</b> — твой личный помощник для привычек и целей ✨\n\n✅ Отмечай привычки одним касанием\n⏱ Таймер для чтения, спорта и медитации\n📊 Серии и статистика — видно, как растёт прогресс\n🏆 Достижения и челленджи с друзьями\n⏰ Напоминания, чтобы ничего не забыть\n\nНачни с одной маленькой привычки — остальное получится само 🌱`;
+    const kb = { inline_keyboard: [[{ text: '🚀 Открыть Трекер', web_app: { url: env.MINIAPP_URL } }]] };
+    // Картинка берётся из frontend/welcome.jpg на GitHub Pages. Если файла нет — отправляем просто текст.
+    const photo = await tg(env, 'sendPhoto', { chat_id: msg.chat.id, photo: `${env.MINIAPP_URL}welcome.jpg`, caption, parse_mode: 'HTML', reply_markup: kb });
+    if (!photo.ok) await tg(env, 'sendMessage', { chat_id: msg.chat.id, text: caption, parse_mode: 'HTML', reply_markup: kb });
     return;
   }
   if (text === '/admin') {
     if (!(await roleOf(env, db, msg.from.id))) return; // обычным пользователям бот не отвечает
-    await tg(env, 'sendMessage', { chat_id: msg.chat.id, text: 'Админ-панель TRAKROBOT',
+    await tg(env, 'sendMessage', { chat_id: msg.chat.id, text: 'Админ-панель Трекера',
       reply_markup: { inline_keyboard: [[{ text: 'Открыть админку', web_app: { url: `${env.MINIAPP_URL}#admin` } }]] } });
   }
 }
@@ -220,7 +239,8 @@ async function runCron(env: Env, db: SupabaseClient) {
     const doneSet = new Set((done ?? []).map((l: any) => `${l.habit_id}|${l.log_date}`));
     for (const d of due) {
       if (doneSet.has(`${d.h.id}|${d.date}`)) continue;
-      if (await claim(db, d.h.user_id, `rem:${d.h.id}:${d.date}`, 'habit_reminder')) await notify(env, db, d.u.telegram_id, `⏰ Напоминание: ${d.h.title}`);
+      if (await claim(db, d.h.user_id, `rem:${d.h.id}:${d.date}`, 'habit_reminder'))
+        await notify(env, db, d.u.telegram_id, `⏰ <b>${escHtml(d.h.title)}</b>\nПора заняться привычкой. Отметь выполнение в Трекере 👇`, { html: true, button: '✅ Открыть Трекер' });
     }
   }
   // 2) окончание PRO (один раз на подписку)
@@ -228,7 +248,7 @@ async function runCron(env: Env, db: SupabaseClient) {
   const { data: ended } = await db.from('subscriptions').select('id,user_id, users(telegram_id,notifications)').is('revoked_at', null).lte('expires_at', now).gte('expires_at', since).limit(500);
   for (const s of ended ?? []) {
     if (await proUntil(db, s.user_id)) continue;
-    if (await claim(db, s.user_id, `exp:${s.id}`, 'pro_expired')) await notify(env, db, (s as any).users.telegram_id, 'Ваш период TRAKROBOT PRO завершён.\n\nВы по-прежнему можете пользоваться бесплатной версией TRAKROBOT.');
+    if (await claim(db, s.user_id, `exp:${s.id}`, 'pro_expired')) await notify(env, db, (s as any).users.telegram_id, 'Ваш период Трекер PRO завершён.\n\nВы по-прежнему можете пользоваться бесплатной версией Трекера.');
   }
   // 3) завершение челленджей
   const { data: fin } = await db.from('challenges').select('id,title').eq('status', 'active').lte('ends_at', now).limit(200);
@@ -246,7 +266,7 @@ export default {
     ctx.waitUntil(runCron(env, db).catch(e => console.error('cron', e)));
   },
 
-  async fetch(req: Request, env: Env): Promise<Response> {
+  async fetch(req: Request, env: Env, ctx: any): Promise<Response> {
     const url = new URL(req.url);
     if (req.method === 'OPTIONS') return new Response(null, { headers: cors(env) });
     const db = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY, { auth: { persistSession: false } });
@@ -276,12 +296,16 @@ export default {
 
       // ── профиль
       if (p === '/api/me' && m === 'GET') {
-        const until = await proUntil(db, user.id);
+        const [until, role] = await Promise.all([proUntil(db, user.id), roleOf(env, db, tgUser.id)]);
         return ok({
           user: { telegram_id: user.telegram_id, username: user.username, first_name: user.first_name, photo_url: user.photo_url, timezone: user.timezone, theme: user.theme, notifications: user.notifications, created_at: user.created_at },
-          isPro: !!until, proUntil: until, isAdmin: !!(await roleOf(env, db, tgUser.id)), refCode: refCode(tgUser.id),
+          isPro: !!until, proUntil: until, isAdmin: !!role, refCode: refCode(tgUser.id),
           plans: PLANS, freeLimits: FREE_LIMITS, serverDate: todayIn(user.timezone),
         });
+      }
+      if (p === '/api/me/test-notify' && m === 'POST') { // проверка: приходят ли сообщения от бота
+        const sent = await notify(env, db, user.telegram_id, '🔔 <b>Уведомления работают!</b>\nНапоминания о привычках будут приходить сюда.', { html: true, button: 'Открыть Трекер' });
+        return ok({ sent });
       }
       if (p === '/api/me' && m === 'PATCH') {
         const patch: any = {};
@@ -304,12 +328,17 @@ export default {
         const { data: groups } = await db.from('habit_groups').select('*').eq('user_id', user.id).order('sort_order');
         return ok({ habits: data ?? [], streaks, groups: groups ?? [] });
       }
-      if (p === '/api/habits' && m === 'POST') return ok(await createHabit(db, user, body), 201);
+      if (p === '/api/habits' && m === 'POST') {
+        const created = await createHabit(db, user, body);
+        ctx.waitUntil(evalAfter(db, user, false, env, ctx).catch(() => { })); // «Первая привычка» и т.п. — в фоне
+        return ok(created, 201);
+      }
       const hm = p.match(/^\/api\/habits\/([0-9a-f-]{36})(\/log)?$/);
       if (hm && hm[2] && m === 'POST') {
         const h = await ownHabit(db, user, hm[1]);
         const log = await writeLog(db, user, h, String(body.date ?? ''), body.value);
-        const unlocked = await evalAfter(db, user, log.completed, env);
+        // достижения и рефералы пересчитываем только когда привычка выполнена — на отмене и промежуточном прогрессе ничего нового не бывает
+        const unlocked = log.completed ? await evalAfter(db, user, true, env, ctx) : [];
         return ok({ log, unlocked });
       }
       if (hm && !hm[2] && m === 'PATCH') return ok(await patchHabit(db, user, hm[1], body));
@@ -391,7 +420,7 @@ export default {
             const date = isDate(body.date) ? body.date : todayIn(user.timezone);
             const { data: ex } = await db.from('habit_logs').select('value').eq('habit_id', h.id).eq('log_date', date).maybeSingle();
             log = await writeLog(db, user, h, date, Number(ex?.value ?? 0) + minutes);
-            unlocked = await evalAfter(db, user, log.completed, env);
+            unlocked = log.completed ? await evalAfter(db, user, true, env, ctx) : [];
           }
           return ok({ minutes, log, unlocked });
         }

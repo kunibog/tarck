@@ -83,8 +83,8 @@ export async function adminRoute(env: Env, db: SupabaseClient, admin: Admin, pat
     if (!data.duplicate) { // уведомление — только после успешного коммита
       const until = fmtDate(data.pro_until ?? data.expires_at);
       await notify(env, db, tgId, data.extended
-        ? `✨ Ваш TRAKROBOT PRO продлён!\n\nНовая дата окончания подписки: ${until}.`
-        : `🎉 Вам подарили TRAKROBOT PRO!\n\nТеперь вам доступны расширенные возможности приложения.\n\nВаш Premium действует до: ${until}.\n\nПриятного использования!`);
+        ? `✨ Ваш Трекер PRO продлён!\n\nНовая дата окончания подписки: ${until}.`
+        : `🎉 Вам подарили Трекер PRO!\n\nТеперь вам доступны расширенные возможности приложения.\n\nВаш Premium действует до: ${until}.\n\nПриятного использования!`);
     }
     return data;
   }
